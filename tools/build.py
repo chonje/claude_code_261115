@@ -138,8 +138,8 @@ def build_layout(key, title, summary, scenario):
     c1 = d + cw  # 복도 아래쪽 선
     spaces, n = [], 0
 
-    xs = splits(0, W, p["topRooms"])
-    for i in range(p["topRooms"]):
+    xs = p.get("topSplits") or splits(0, W, p["topRooms"])  # topSplits: 기둥 위치에 맞춘 경계
+    for i in range(len(xs) - 1):
         n += 1
         spaces.append(make_room(n, xs[i], xs[i + 1], 0, d, "bottom", "right" if i % 2 == 0 else "left"))
 
@@ -215,6 +215,7 @@ def main():
         build_layout("A", "A안 · 11실", "위쪽 벽 7실 + 왼쪽 아래 4실. 가운데 직선 복도, 계단 옆에 세탁·현관·주방·휴게.", all4),
         build_layout("B", "B안 · 실 수 최대", "최소 면적 9㎡에 맞춰 방 폭을 줄여 위쪽 9실 + 왼쪽 아래 5실.", all4),
         build_layout("C", "C안 · 위쪽 벽만 창", "위쪽 벽에만 창을 낼 수 있을 때. 방은 위쪽 9실뿐이고 나머지는 공용.", top_only),
+        build_layout("D", "D안 · 프리미엄 9실", "방을 키운 안. 위쪽 5실은 기둥 간격에 맞춰 12.6~18㎡, 왼쪽 아래 4실은 13.4㎡. 공용은 A안과 같음.", all4),
     ]
     (ROOT / "layouts.json").write_text(json.dumps(layouts, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     print("layouts.json 생성:", ", ".join(f"{l['key']}={l['stats']['rooms']}실" for l in layouts))
