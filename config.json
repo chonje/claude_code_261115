@@ -17,7 +17,7 @@
     "exitMinSeparationRatio": 0.5,
     "commonMinAreaM2": {
       "laundry": 4.0,
-      "kitchen": 5.0,
+      "kitchen": 4.5,
       "lounge": 5.0,
       "entrance": 4.0
     }
@@ -34,20 +34,6 @@
   },
   "layouts": {
     "A": {
-      "topRooms": 7,
-      "topDepthMm": 3600,
-      "bottomRooms": 4
-    },
-    "B": {
-      "topRooms": 9,
-      "topDepthMm": 4100,
-      "bottomRooms": 5
-    },
-    "C": {
-      "topRooms": 9,
-      "topDepthMm": 4100
-    },
-    "D": {
       "topSplits": [
         0,
         3500,
@@ -58,6 +44,20 @@
       ],
       "topDepthMm": 3600,
       "bottomRooms": 4
+    },
+    "B": {
+      "topRooms": 7,
+      "topDepthMm": 3600,
+      "bottomRooms": 4
+    },
+    "C": {
+      "topRooms": 9,
+      "topDepthMm": 4100
+    },
+    "D": {
+      "topRooms": 9,
+      "topDepthMm": 4100,
+      "bottomRooms": 5
     }
   },
   "calculator": {
@@ -70,5 +70,6 @@
     "prepMonths": 5,
     "nearbySiteCompletion": "2029-12"
   },
-  "defaultLayout": "D"
+  "defaultLayout": "A",
+  "toiletToLaundry": true
 }

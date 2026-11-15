@@ -21,6 +21,7 @@ EXT_W, H_ALL = EXT["w"], EXT["y"] + EXT["h"]  # 10500, 10200
 TOILET = PLAN["existing"]["toilet"]
 DOOR = PLAN["mainDoor"]
 DRAIN = PLAN["drainRef"]
+CONV = bool(CFG.get("toiletToLaundry"))
 
 LABELS = {"laundry": "세탁", "entrance": "현관", "kitchen": "주방", "lounge": "휴게",
           "storage": "창고", "office": "관리"}
@@ -151,7 +152,11 @@ def build_layout(key, title, summary, scenario):
         for i in range(p["bottomRooms"]):
             n += 1
             spaces.append(make_room(n, bxs[i], bxs[i + 1], c1, H_ALL, "top", "right" if i % 2 == 0 else "left"))
-    else:  # C안: 왼쪽 아래는 공용
+    elif CONV:  # 위쪽 벽만 창: 왼쪽 아래는 공용 (세탁은 기존 화장실 자리)
+        spaces.append(common("lounge", 0, 6000, c1, H_ALL, "top"))
+        spaces.append(common("storage", 6000, EXT_W, c1, H_ALL, "top"))
+        bxs = [0, 6000, EXT_W]
+    else:
         spaces.append(common("lounge", 0, 4500, c1, H_ALL, "top"))
         spaces.append(common("kitchen", 4500, 8000, c1, H_ALL, "top"))
         spaces.append(common("laundry", 8000, EXT_W, c1, H_ALL, "top"))
@@ -159,7 +164,16 @@ def build_layout(key, title, summary, scenario):
 
     tx1 = TOILET["x"] + TOILET["w"]  # 12800
     ex1 = 14900
-    if p.get("bottomRooms"):
+    if CONV:
+        # 기존 공용 화장실을 세탁실로. 그 위 칸은 주방(배관을 한곳에 모음), 세탁실은 주방을 거쳐 들어감
+        spaces.append(common("kitchen", EXT_W, tx1, c1, H_MAIN, "top"))
+        spaces.append(common("entrance", tx1, ex1, c1, H_MAIN, "top", door=False))
+        spaces.append(common("lounge" if p.get("bottomRooms") else "office", ex1, W, c1, H_MAIN, "top"))
+        dw0 = R["doorWidthMm"]; dx0 = round(TOILET["x"] + TOILET["w"] / 2 - dw0 / 2)
+        spaces.append({"id": "laundry", "type": "laundry", "label": LABELS["laundry"], "via": "kitchen",
+                       "x": TOILET["x"], "y": TOILET["y"], "w": TOILET["w"], "h": TOILET["h"],
+                       "door": {"x1": dx0, "y1": H_MAIN, "x2": dx0 + dw0, "y2": H_MAIN, "into": [0, 1], "hinge": "start"}})
+    elif p.get("bottomRooms"):
         spaces.append(common("laundry", EXT_W, tx1, c1, H_MAIN, "top"))
         spaces.append(common("entrance", tx1, ex1, c1, H_MAIN, "top", door=False))
         spaces.append(common("kitchen", ex1, 17400, c1, H_MAIN, "top"))
@@ -185,14 +199,14 @@ def build_layout(key, title, summary, scenario):
     dims.append(dim(-2800, 0, -2800, H_ALL))
 
     rooms = [s for s in spaces if s["type"] == "room"]
-    usable = sum(u["w"] * u["h"] for u in PLAN["usable"]) / 1e6
+    usable = (sum(u["w"] * u["h"] for u in PLAN["usable"]) + (TOILET["w"] * TOILET["h"] if CONV else 0)) / 1e6
     room_area = sum(s["areaM2"] for s in rooms)
     notes = []
     red = [s["label"] for s in rooms if any(w["reduced"] for w in s["windows"])]
     if red:
         notes.append(f"{', '.join(red)}번 방은 외벽 기둥 때문에 창 폭이 {R['windowWidthMm']:,}mm보다 좁아짐 (기둥 실제 크기 확인 필요)")
     return {
-        "key": key, "title": title, "summary": summary, "windowScenario": scenario,
+        "key": key, "title": title, "summary": summary, "windowScenario": scenario, "toiletConverted": CONV,
         "spaces": spaces, "exit": exit_, "dims": dims, "notes": notes,
         "stats": {
             "rooms": len(rooms),
@@ -211,11 +225,12 @@ def build_layout(key, title, summary, scenario):
 def main():
     all4 = {"top": True, "bottom": True, "left": True, "right": True}
     top_only = {"top": True, "bottom": False, "left": False, "right": False}
+    pub = "기존 공용 화장실 자리에 세탁실, 그 위에 주방, 계단 옆에 현관과 휴게." if CONV else "계단 옆에 세탁·현관·주방·휴게."
     layouts = [
-        build_layout("A", "A안 · 11실", "위쪽 벽 7실 + 왼쪽 아래 4실. 가운데 직선 복도, 계단 옆에 세탁·현관·주방·휴게.", all4),
-        build_layout("B", "B안 · 실 수 최대", "최소 면적 9㎡에 맞춰 방 폭을 줄여 위쪽 9실 + 왼쪽 아래 5실.", all4),
+        build_layout("A", "A안 · 프리미엄 9실", "방을 키운 안. 위쪽 5실은 기둥 간격에 맞춰 12.6~18㎡, 왼쪽 아래 4실은 13.4㎡. " + pub, all4),
+        build_layout("B", "B안 · 11실", "위쪽 벽 7실 + 왼쪽 아래 4실. 가운데 직선 복도. " + pub, all4),
         build_layout("C", "C안 · 위쪽 벽만 창", "위쪽 벽에만 창을 낼 수 있을 때. 방은 위쪽 9실뿐이고 나머지는 공용.", top_only),
-        build_layout("D", "D안 · 프리미엄 9실", "방을 키운 안. 위쪽 5실은 기둥 간격에 맞춰 12.6~18㎡, 왼쪽 아래 4실은 13.4㎡. 공용은 A안과 같음.", all4),
+        build_layout("D", "D안 · 실 수 최대 14실", "최소 면적 9㎡에 맞춰 방 폭을 줄여 위쪽 9실 + 왼쪽 아래 5실.", all4),
     ]
     (ROOT / "layouts.json").write_text(json.dumps(layouts, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     print("layouts.json 생성:", ", ".join(f"{l['key']}={l['stats']['rooms']}실" for l in layouts))

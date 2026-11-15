@@ -74,8 +74,11 @@ def validate(layout):
     walls = {w["id"]: w for w in PLAN["exteriorWalls"]}
 
     # 1. 평면 안에 있고 서로 겹치지 않음
+    usable = list(PLAN["usable"])
+    if layout.get("toiletConverted"):  # 기존 화장실을 세탁실로 쓰는 경우 그 칸도 배치 대상
+        usable.append(PLAN["existing"]["toilet"])
     for s in sp:
-        inside = sum(inter_area(s, u) for u in PLAN["usable"])
+        inside = sum(inter_area(s, u) for u in usable)
         if s["w"] <= 0 or s["h"] <= 0 or inside != s["w"] * s["h"]:
             errs.append(f"{s['id']}: 평면 밖으로 나감")
     for i, a in enumerate(sp):
@@ -86,6 +89,9 @@ def validate(layout):
     # 2. 면적 합
     total = sum(s["w"] * s["h"] for s in sp) / 1e6
     target = PLAN["usableAreaM2"]
+    if layout.get("toiletConverted"):
+        t = PLAN["existing"]["toilet"]
+        target = round(target + t["w"] * t["h"] / 1e6, 2)
     if abs(total - target) / target > R["areaTolerance"]:
         errs.append(f"면적 합 {total:.2f}㎡ 가 {target}㎡ ±{R['areaTolerance']:.0%} 를 벗어남")
 
@@ -152,7 +158,14 @@ def validate(layout):
                 errs.append(f"{kind}: 면적 {s['w'] * s['h'] / 1e6:.2f}㎡ < {min_a}㎡")
     for s in sp:
         if s["type"] not in ("room", "corridor"):
-            if not any(shared_edge(s, c)[0] >= R["doorWidthMm"] for c in corridors):
+            if any(shared_edge(s, c)[0] >= R["doorWidthMm"] for c in corridors):
+                continue
+            # 복도에 직접 닿지 않으면, 복도에 닿는 다른 공용 공간을 거쳐 문으로 들어가야 함
+            via = next((v for v in sp if v["id"] == s.get("via")), None)
+            ok = (via is not None and via["type"] not in ("room", "corridor")
+                  and any(shared_edge(via, c)[0] >= R["doorWidthMm"] for c in corridors)
+                  and s.get("door") and seg_on_shared_edge(s["door"], s, via))
+            if not ok:
                 errs.append(f"{s['id']}: 복도에 접하지 않음")
 
     # 6. 현관이 주출입구를 품고, 비상구는 복도 끝 외벽 + 주출입구 반대편
@@ -209,7 +222,7 @@ def main():
     for lay in layouts:
         errs, total = validate(lay)
         st = lay["stats"]
-        print(f"[{lay['key']}] {st['rooms']}실 · 면적 합 {total:.2f}㎡ (기준 {PLAN['usableAreaM2']}㎡) · "
+        print(f"[{lay['key']}] {st['rooms']}실 · 면적 합 {total:.2f}㎡ (기준 {st['usableM2']}㎡) · "
               f"최소 방 {st['minRoomM2']}㎡ → {'통과' if not errs else '실패'}")
         for e in errs:
             print("   ✗", e)
